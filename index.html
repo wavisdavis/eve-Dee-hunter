@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DED Hunter | EVE Online</title>
+<style>
+:root{--bg:#0b1016;--panel:#121b25;--panel2:#172331;--line:#263746;--text:#e7edf3;--muted:#91a2b3;--amber:#f0ad4e;--green:#62c89a;--red:#e47c78;--blue:#79b8e8}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% 0%,#1a2b3a 0,#0b1016 48%);color:var(--text);font:14px/1.5 Inter,system-ui,Segoe UI,sans-serif}
+header{padding:24px clamp(16px,4vw,48px) 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:20px}
+.brand{font-weight:800;letter-spacing:.16em;font-size:13px;color:var(--amber)}h1{font-size:clamp(24px,4vw,36px);margin:5px 0 0;letter-spacing:-.04em}.sub{color:var(--muted);margin-top:3px}.status{border:1px solid var(--line);padding:7px 11px;border-radius:99px;color:var(--muted);white-space:nowrap}
+main{max-width:1400px;margin:auto;padding:24px clamp(14px,3vw,36px) 48px}.grid{display:grid;grid-template-columns:350px 1fr;gap:18px}.panel{background:linear-gradient(160deg,#14202b,#101821);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 14px 40px #0003}.panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin:0 0 15px}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 5px}input,select{width:100%;background:#0b131c;border:1px solid #304354;color:var(--text);padding:10px 11px;border-radius:8px;font:inherit}input:focus,select:focus{outline:1px solid var(--amber);border-color:var(--amber)}
+button{background:var(--amber);color:#15191d;border:0;border-radius:8px;padding:10px 13px;font-weight:750;cursor:pointer;font:inherit}button.secondary{background:#263849;color:var(--text);border:1px solid #3a5267}button:disabled{opacity:.5;cursor:wait}button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.btnrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.btnrow button{flex:1}
+.small{font-size:11px;color:var(--muted)}.notice{border-left:3px solid var(--amber);padding:9px 11px;background:#f0ad4e12;color:#c4d0da;font-size:12px;margin-top:12px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.metric{background:#0c151e;border:1px solid var(--line);padding:12px;border-radius:10px}.metric b{display:block;font-size:22px;overflow-wrap:anywhere}.metric span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:10px 8px;border-bottom:1px solid var(--line)}td{padding:11px 8px;border-bottom:1px solid #22313e}tr:last-child td{border:0}.score{font-weight:800;color:var(--green)}.warn{color:var(--amber)}.muted{color:var(--muted)}
+.tag{display:inline-block;border:1px solid #3b5368;border-radius:99px;padding:2px 7px;font-size:11px;color:#b9cbd9}.hidden{display:none}.section{margin-top:18px}.section h3{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 10px}
+.factiongrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.faction{background:#0c151e;border:1px solid var(--line);padding:10px;border-radius:9px}.faction strong{display:block}.faction span{font-size:11px;color:var(--muted)}
+#log{white-space:pre-wrap;color:var(--muted);font-size:12px;max-height:220px;overflow:auto}
+#territory{margin-top:6px}
+footer{color:var(--muted);font-size:11px;margin-top:18px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.factiongrid{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}input,select{font-size:16px}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">AEGIS // NEW EDEN INTELLIGENCE</div><h1>DED HUNTER</h1><div class="sub">Quiet-system routing · pirate intelligence · Caracal Navy Issue doctrine</div></div><div class="status" id="connection">● ESI not connected</div></header>
+<main>
+<div class="grid">
+<aside class="panel">
+<h2>01 / Mission parameters</h2>
+<label for="clientId">EVE SSO Client ID</label><input id="clientId" placeholder="Paste your EVE developer application Client ID" autocomplete="off" spellcheck="false">
+<label for="redirect">Redirect URI</label><input id="redirect" placeholder="Must exactly match your EVE app callback URL" autocomplete="off" spellcheck="false">
+<div class="btnrow"><button id="login">Connect EVE character</button><button class="secondary" id="logout">Disconnect</button></div>
+<div class="notice">Read-only access. Requests only <b>esi-location.read_location.v1</b> using EVE's PKCE flow. No client secret or EVE password is stored in this dashboard.</div>
+<label for="origin">Starting system</label><div class="row"><input id="origin" placeholder="Auto-filled after EVE login, or type a system" autocomplete="off" spellcheck="false"><button class="secondary" id="useLocation" style="flex:0 0 auto">Use ESI</button></div>
+<label for="faction">Target pirate faction</label><select id="faction"></select>
+<label for="empire">Empire space</label><select id="empire">
+<option value="caldari">Caldari space</option><option value="gallente">Gallente space</option><option value="minmatar">Minmatar space</option><option value="amarr">Amarr space</option><option value="all">All empire space</option>
+</select>
+<div class="small" id="territory"></div>
+<div class="row"><div><label for="minsec">Minimum security</label><select id="minsec"><option>0.5</option><option>0.6</option><option>0.7</option></select></div><div><label for="maxsec">Maximum security</label><select id="maxsec"><option>0.7</option><option>0.6</option><option>0.5</option></select></div></div>
+<label for="preference">Route preference</label><select id="preference"><option value="quiet">Quietest systems</option><option value="balanced">Balanced (quiet + close)</option><option value="short">Shortest travel</option></select>
+<label for="limit">Systems to return</label><select id="limit"><option>10</option><option>15</option><option>25</option></select>
+<div class="btnrow"><button id="scan">Find hunting systems</button><button class="secondary" id="selftest">Run self-test</button></div>
+<div id="log" class="section">Ready. Connect EVE SSO or enter a starting system manually, then scan.</div>
+</aside>
+<section>
+<div class="metrics">
+<div class="metric"><span>Origin</span><b id="mOrigin">—</b></div><div class="metric"><span>Systems checked</span><b id="mChecked">0</b></div><div class="metric"><span>Quiet candidates</span><b id="mCandidates">0</b></div><div class="metric"><span>Data freshness</span><b id="mFresh">—</b></div>
+</div>
+<div class="panel">
+<h2>02 / Ranked hunting grounds</h2>
+<div class="small">Ranks systems by current ESI activity snapshot: ship jumps, ship kills, pod kills and NPC kills. ESI's public activity endpoints represent the latest hourly window, not a historical time series.</div>
+<div class="section" style="overflow:auto"><table><thead><tr><th># / System</th><th>Sec</th><th>Jumps</th><th>Ship / pod kills</th><th>NPC kills</th><th>Route</th><th>Quiet index</th></tr></thead><tbody id="results"><tr><td colspan="7" class="muted">No scan run yet.</td></tr></tbody></table></div>
+<div id="routeInfo" class="small section"></div>
+</div>
+<div class="panel section">
+<h2>03 / Pirate threat &amp; Caracal Navy Issue fitting advice</h2>
+<div class="factiongrid" id="doctrine"></div>
+<div class="section" id="advice"></div>
+<div class="notice">NPC damage profiles are general faction guidance. Individual NPC classes, special spawns and site mechanics can differ. Check the exact NPC and site before committing to a tank.</div>
+</div>
+<div class="panel section">
+<h2>04 / Operational notes</h2>
+<ul class="small">
+<li>The search covers only the regions where the selected pirate faction's sites spawn. Faction and empire selectors are linked, so impossible combinations cannot be chosen.</li>
+<li>DED rating and acceleration-gate ship restrictions are separate from system security. A cruiser-class hull such as the Caracal Navy Issue can enter DED complexes rated up to 3/10; higher ratings need a battlecruiser (4/10) or larger. This finder locates candidate systems; it does not guarantee a particular DED complex will spawn.</li>
+<li>Quiet index is a comparative score from the latest available activity snapshot, not a guarantee of safety or site availability.</li>
+<li>Route length uses the ESI route service. Avoidance settings and autopilot safety settings in-game may differ.</li>
+<li>For reliable results, run a fresh scan before undocking and verify system activity in-game.</li>
+</ul>
+</div>
+</section></div>
+<footer>Data source: CCP EVE Swagger Interface (ESI), Tranquility. This is an unofficial third-party tool and is not affiliated with CCP Games.</footer>
+</main>
+<script>
+'use strict';
+/* ---------- Configuration ---------- */
+const ESI='https://esi.evetech.net';           // current ESI: no /latest prefix; version is pinned with a compatibility date
+const ESI_DATE='2026-08-18';                   // newest ESI compatibility date at time of writing
+const SSO='https://login.eveonline.com/v2/oauth';
+const SCOPE='esi-location.read_location.v1';
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- Pirate territory (verified: Dotlan region list, Fuzzwork "Complete Signature Strength List", EVE University wiki; region IDs from the ESI region ID table) ---------- */
+const FACTIONS={
+ 'Guristas':{empire:'caldari',regions:[[10000002,'The Forge'],[10000016,'Lonetrek'],[10000033,'The Citadel'],[10000069,'Black Rise']]},
+ 'Serpentis':{empire:'gallente',regions:[[10000032,'Sinq Laison'],[10000064,'Essence'],[10000068,'Verge Vendor'],[10000048,'Placid'],[10000044,'Solitude'],[10000037,'Everyshore']]},
+ 'Angel Cartel':{empire:'minmatar',regions:[[10000030,'Heimatar'],[10000042,'Metropolis'],[10000028,'Molden Heath']]},
+ 'Blood Raiders':{empire:'amarr',regions:[[10000054,'Aridia'],[10000067,'Genesis'],[10000052,'Kador'],[10000049,'Khanid'],[10000065,'Kor-Azor'],[10000038,'The Bleak Lands']]},
+ "Sansha's Nation":{empire:'amarr',regions:[[10000001,'Derelik'],[10000036,'Devoid'],[10000043,'Domain'],[10000020,'Tash-Murkon']]}
+};
+const EMPIRE_NAMES={caldari:'Caldari space',gallente:'Gallente space',minmatar:'Minmatar space',amarr:'Amarr space',all:'All empire space'};
+const factionsFor=empire=>Object.keys(FACTIONS).filter(f=>empire==='all'||FACTIONS[f].empire===empire);
+
+/* ---------- Combat doctrine (damage dealt/weakness per EVE University NPC damage-type table; Caracal Navy Issue, missiles + shield tank) ---------- */
+const EWAR={
+ ecm:{name:'ECM (target jamming)',tip:'Jams your target locks. Consider ECCM or sensor-strength mods, and keep drones or a second target ready.'},
+ damp:{name:'Sensor dampeners',tip:'Cuts your lock range and lock speed. A sensor booster with a lock-range or scan-resolution script helps.'},
+ paint:{name:'Target painters',tip:'Inflates your signature radius so incoming damage lands harder. Keep your hardeners running and keep moving.'},
+ neut:{name:'Energy neutralizers',tip:'Drains capacitor, which can shut down active shield hardeners and your propulsion. Fit to be cap-stable and watch your cap.'},
+ track:{name:'Tracking disruptors',tip:'Mainly degrades turret tracking and range, so a missile-armed Caracal is usually less affected.'}
+};
+const DOCTRINE={
+ 'Guristas':{deal:['Kinetic','Thermal'],resist:['Kinetic','Thermal'],ammo:['Scourge (kinetic)','Inferno (thermal)'],ewar:['ecm']},
+ 'Serpentis':{deal:['Thermal','Kinetic'],resist:['Thermal','Kinetic'],ammo:['Inferno (thermal)','Scourge (kinetic)'],ewar:['damp']},
+ 'Angel Cartel':{deal:['Explosive','Kinetic'],resist:['Explosive','Kinetic'],ammo:['Nova (explosive)','Scourge (kinetic)'],ewar:['paint']},
+ 'Blood Raiders':{deal:['EM','Thermal'],resist:['EM','Thermal'],ammo:['Mjolnir (EM)','Inferno (thermal)'],ewar:['neut','track']},
+ "Sansha's Nation":{deal:['EM','Thermal'],resist:['EM','Thermal'],ammo:['Mjolnir (EM)','Inferno (thermal)'],ewar:['track']}
+};
+
+/* ---------- State, storage, helpers ---------- */
+let accessToken=null, character=null, currentSystem=null, currentSystemName=null;
+const store={
+ get(area,k,d){try{const v=area.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+ set(area,k,v){try{area.setItem(k,JSON.stringify(v))}catch(e){}},
+ del(area,k){try{area.removeItem(k)}catch(e){}}
+};
+const sysCache=new Map(Object.entries(store.get(localStorage,'ded_sys_v2',{})).map(([k,v])=>[Number(k),v]));
+const regCache=store.get(localStorage,'ded_reg_v2',{});
+function saveCaches(){store.set(localStorage,'ded_sys_v2',Object.fromEntries(sysCache));store.set(localStorage,'ded_reg_v2',regCache)}
+function log(s){$('log').textContent=s}
+function b64url(bytes){let s='';new Uint8Array(bytes).forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function fromB64url(s){s=s.replace(/-/g,'+').replace(/_/g,'/');s+='='.repeat((4-s.length%4)%4);return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+async function sha256(s){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))}
+function randomB64url(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64url(a)}
+function setConnection(t){$('connection').textContent=t}
+const gameSec=s=>Math.round(s*10+1e-9)/10;   // the in-game displayed security rounds to 1 decimal
+
+/* ---------- ESI client ---------- */
+async function esi(path,{token=null,method='GET',body=null}={}){
+ const url=ESI+path+(path.includes('?')?'&':'?')+'compatibility_date='+ESI_DATE;
+ for(let attempt=0;attempt<4;attempt++){
+  const headers={Accept:'application/json'};
+  if(token)headers.Authorization='Bearer '+token;
+  if(body)headers['Content-Type']='application/json';
+  const r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
+  if(r.status===429||r.status===420){await sleep(Math.min(Number(r.headers.get('Retry-After'))||2*(attempt+1),30)*1000);continue}
+  if(!r.ok){const e=new Error('ESI '+r.status+' on '+path);e.status=r.status;throw e}
+  return r.json();
+ }
+ throw new Error('ESI rate limit persisted on '+path);
+}
+async function pool(items,fn,limit=8,label='Loading'){
+ let idx=0,done=0;const out=new Array(items.length);
+ async function worker(){while(true){const i=idx++;if(i>=items.length)return;try{out[i]=await fn(items[i],i)}catch(e){out[i]=null}done++;if(done%25===0)log(`${label}… ${done}/${items.length}`)}}
+ await Promise.all(Array.from({length:Math.min(limit,items.length||1)},worker));
+ return out;
+}
+
+/* ---------- EVE SSO (OAuth 2.0 authorization code + PKCE, public client, no secret) ---------- */
+function defaultRedirect(){return (location.origin+location.pathname).replace(/index\.html$/,'')}
+async function buildAuthRequest(clientId,redirect){
+ const verifier=randomB64url(48), challenge=b64url(await sha256(verifier)), state=randomB64url(16);
+ const params=new URLSearchParams({response_type:'code',redirect_uri:redirect,client_id:clientId,scope:SCOPE,state,code_challenge:challenge,code_challenge_method:'S256'});
+ return {verifier,state,url:SSO+'/authorize?'+params.toString()};
+}
+async function login(){
+ const id=$('clientId').value.trim(), red=$('redirect').value.trim();
+ if(!id||!red){alert('Enter your EVE SSO Client ID and the exact registered Redirect URI first.');return}
+ if(!window.crypto||!crypto.subtle){alert('A secure browser context (HTTPS) is required.');return}
+ store.set(localStorage,'ded_cfg',{clientId:id,redirect:red});
+ const req=await buildAuthRequest(id,red);
+ store.set(sessionStorage,'eve_pkce',{verifier:req.verifier,state:req.state,clientId:id,redirect:red});
+ location.href=req.url;
+}
+// The SSO v2 access token is a JWT. It comes straight from the SSO token endpoint over TLS, so we read the claims
+// (character ID + name) and check issuer, audience, expiry and scope. ESI itself verifies the signature when the token is used.
+function readToken(jwt,clientId){
+ const parts=jwt.split('.');if(parts.length!==3)throw new Error('Unexpected access token format.');
+ const c=JSON.parse(new TextDecoder().decode(fromB64url(parts[1])));
+ if(!['login.eveonline.com','https://login.eveonline.com'].includes(c.iss))throw new Error('Token issuer is not EVE SSO.');
+ const aud=[].concat(c.aud||[]);if(!aud.includes(clientId)||!aud.includes('EVE Online'))throw new Error('Token audience does not match this Client ID.');
+ if(!c.exp||c.exp*1000<=Date.now())throw new Error('Token is already expired.');
+ const scopes=[].concat(c.scp||[]);if(!scopes.includes(SCOPE))throw new Error('Token is missing the '+SCOPE+' scope. Check the scope list on your EVE developer application.');
+ const m=/^CHARACTER:EVE:(\d+)$/.exec(c.sub||'');if(!m)throw new Error('Token has no character ID.');
+ return {id:Number(m[1]),name:c.name||('Character '+m[1]),exp:c.exp};
+}
+async function handleCallback(){
+ const q=new URLSearchParams(location.search), code=q.get('code'), err=q.get('error');
+ if(!code&&!err)return false;
+ const saved=store.get(sessionStorage,'eve_pkce',null);
+ store.del(sessionStorage,'eve_pkce');
+ history.replaceState({},'',location.pathname);
+ if(err){log('EVE SSO error: '+err+(q.get('error_description')?' ('+q.get('error_description')+')':''));return true}
+ if(!saved||q.get('state')!==saved.state){log('SSO state mismatch or missing session. Click Connect again.');return true}
+ try{
+  const body=new URLSearchParams({grant_type:'authorization_code',code,client_id:saved.clientId,redirect_uri:saved.redirect,code_verifier:saved.verifier});
+  let r;
+  try{r=await fetch(SSO+'/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},body})}
+  catch(e){throw new Error('Could not reach the EVE token endpoint (network or browser cross-origin block).')}
+  if(!r.ok){let d='';try{d=(await r.json()).error_description||''}catch(e){}throw new Error('Token exchange failed: HTTP '+r.status+(d?' ('+d+')':''))}
+  const tok=await r.json();
+  const ch=readToken(tok.access_token,saved.clientId);
+  accessToken=tok.access_token;character=ch;
+  store.set(sessionStorage,'eve_session',{token:accessToken,character:ch});
+  setConnection('● Connected: '+ch.name);
+  $('origin').value='Loading location…';
+  await getLocation();
+ }catch(e){log(e.message+'\nNo client secret is ever needed for this flow. If this keeps failing, check the Client ID, callback URL and scope on your EVE developer application.');$('origin').value=''}
+ return true;
+}
+async function restore(){
+ const s=store.get(sessionStorage,'eve_session',null);if(!s)return;
+ if(!s.character||s.character.exp*1000<=Date.now()+30000){disconnect(false);log('Your EVE session expired. Click Connect to sign in again.');return}
+ accessToken=s.token;character=s.character;setConnection('● Connected: '+character.name);
+ await getLocation();
+}
+async function getLocation(){
+ if(!accessToken||!character){alert('Connect an EVE character first.');return false}
+ try{
+  const loc=await esi(`/characters/${character.id}/location/`,{token:accessToken});
+  const sys=await getSystem(loc.solar_system_id);saveCaches();
+  currentSystem=sys.system_id;currentSystemName=sys.name;
+  $('origin').value=sys.name;$('mOrigin').textContent=sys.name;
+  log('EVE location: '+sys.name+' ('+gameSec(sys.sec).toFixed(1)+').');
+  return true;
+ }catch(e){
+  if(e.status===401||e.status===403){disconnect(false);log('EVE rejected the session (expired, or the location scope was not granted). Click Connect to sign in again.')}
+  else{log('Location lookup failed: '+e.message+'\nYou can still type your starting system manually.')}
+  if($('origin').value==='Loading location…')$('origin').value='';
+  return false;
+ }
+}
+function disconnect(announce=true){accessToken=null;character=null;currentSystem=null;currentSystemName=null;store.del(sessionStorage,'eve_session');store.del(sessionStorage,'eve_pkce');setConnection('● ESI not connected');if(announce)log('Disconnected.')}
+
+/* ---------- Universe data ---------- */
+async function getSystem(id){
+ if(sysCache.has(id))return sysCache.get(id);
+ const s=await esi(`/universe/systems/${id}/`),p=s.position||{};
+ const d={system_id:id,name:s.name,sec:s.security_status,x:p.x,y:p.y,z:p.z};
+ sysCache.set(id,d);return d;
+}
+async function getRegionSystems(id,name){
+ if(regCache[id])return regCache[id];
+ const region=await esi(`/universe/regions/${id}/`);
+ if(region.name!==name)throw new Error(`Region ${id} is "${region.name}", expected "${name}"`);
+ const cons=await pool(region.constellations,c=>esi(`/universe/constellations/${c}/`),8,'Loading '+name);
+ if(cons.some(c=>!c))throw new Error('Some constellations of '+name+' failed to load');
+ const ids=[...new Set(cons.flatMap(c=>c.systems))];
+ if(!ids.length)throw new Error('No systems returned for '+name);
+ regCache[id]=ids;return ids;
+}
+async function resolveOrigin(name){
+ if(currentSystem&&currentSystemName&&name.toLowerCase()===currentSystemName.toLowerCase())return {id:currentSystem,name:currentSystemName};
+ const res=await esi('/universe/ids/',{method:'POST',body:[name]});
+ const hit=(res.systems||res.solar_systems||[])[0];
+ if(!hit)throw new Error('Could not find a solar system named "'+name+'". Check the spelling.');
+ return {id:hit.id,name:hit.name};
+}
+const lyBetween=(a,b)=>[a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)?Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)/9.4607e15:null;
+
+/* ---------- Selector synchronization ---------- */
+function fillFactions(empire,preferred){
+ const list=factionsFor(empire),sel=$('faction');
+ sel.innerHTML='';list.forEach(f=>sel.add(new Option(f,f)));
+ sel.value=list.includes(preferred)?preferred:list[0];
+}
+function showTerritory(){
+ const f=$('faction').value;
+ $('territory').textContent='Searches '+f+' territory: '+FACTIONS[f].regions.map(r=>r[1]).join(', ')+'.';
+}
+function onEmpireChange(){fillFactions($('empire').value,$('faction').value);refreshFaction()}
+function onFactionChange(){const f=$('faction').value;$('empire').value=FACTIONS[f].empire;fillFactions(FACTIONS[f].empire,f);refreshFaction()}
+function refreshFaction(){renderDoctrine($('faction').value);showTerritory()}
+
+/* ---------- Scan ---------- */
+async function findSystems(){
+ const originName=$('origin').value.trim();
+ if(!originName||originName==='Loading location…'){alert('Connect EVE SSO or enter your starting solar system.');return}
+ const minS=Number($('minsec').value),maxS=Number($('maxsec').value);
+ if(minS>maxS){alert('Minimum security cannot be higher than maximum security.');return}
+ const faction=$('faction').value,def=FACTIONS[faction];
+ $('scan').disabled=true;
+ try{
+  log('Resolving origin system…');
+  const origin=await resolveOrigin(originName),originSys=await getSystem(origin.id);
+  $('mOrigin').textContent=origin.name;
+  log(`Loading ${faction} territory: ${def.regions.map(r=>r[1]).join(', ')}…`);
+  const settled=await Promise.allSettled(def.regions.map(([id,name])=>getRegionSystems(id,name)));
+  const sysRegion=new Map(),problems=[];
+  settled.forEach((r,i)=>{if(r.status==='fulfilled')r.value.forEach(id=>sysRegion.set(id,def.regions[i][1]));else problems.push(r.reason.message)});
+  if(!sysRegion.size)throw new Error('No region data could be loaded. '+problems.join('; '));
+  const ids=[...sysRegion.keys()];
+  log(`Checking ${ids.length} solar systems…`);
+  const details=await pool(ids,getSystem,8,'Loading system data');
+  saveCaches();
+  const loaded=details.filter(Boolean);
+  const valid=loaded.filter(d=>{const s=gameSec(d.sec);return s>=minS-1e-9&&s<=maxS+1e-9});
+  $('mChecked').textContent=loaded.length;
+  log(`Found ${valid.length} systems in the security band. Loading activity snapshot…`);
+  const [jumps,kills]=await Promise.all([esi('/universe/system_jumps/'),esi('/universe/system_kills/')]);
+  const jm=new Map(jumps.map(x=>[x.system_id,x.ship_jumps])),km=new Map(kills.map(x=>[x.system_id,x]));
+  const cands=valid.map(d=>{const k=km.get(d.system_id)||{};return {...d,region:sysRegion.get(d.system_id),jumps:jm.get(d.system_id)||0,ship:k.ship_kills||0,pod:k.pod_kills||0,npc:k.npc_kills||0,ly:lyBetween(originSys,d)}});
+  // Quiet index: transparent relative ranking. Lower observed traffic and PvP = higher score.
+  const mx=f=>Math.max(1,...cands.map(f));const maxJ=mx(x=>x.jumps),maxS2=mx(x=>x.ship),maxP=mx(x=>x.pod),maxN=mx(x=>x.npc);
+  cands.forEach(x=>{x.quiet=Math.round(100*(1-(.45*x.jumps/maxJ+.30*x.ship/maxS2+.20*x.pod/maxP+.05*x.npc/maxN)))});
+  const pref=$('preference').value,maxLy=Math.max(1,...cands.map(x=>x.ly||0));
+  // Pick which candidates to route using a cheap proxy, so the preference is honoured before spending ESI route calls.
+  const proxy=x=>pref==='quiet'?(100-x.quiet):pref==='short'?(x.ly??1e9):(.65*(100-x.quiet)/100+.35*(x.ly??maxLy)/maxLy);
+  const pre=[...cands].sort((a,b)=>proxy(a)-proxy(b)).slice(0,60);
+  log(`Calculating route distances from ${origin.name}…`);
+  const routed=await pool(pre,async d=>{try{const r=await esi(`/route/${origin.id}/${d.system_id}/?flag=shortest`);return {...d,distance:r.length-1}}catch(e){return {...d,distance:null}}},8,'Routing');
+  const out=routed.filter(Boolean);
+  if(out.length&&out.every(x=>x.distance===null))log('Route service unavailable; showing straight-line distance instead.');
+  const key=x=>x.distance!==null?x.distance:1e3+(x.ly??1e3);
+  const maxD=Math.max(1,...out.map(key));
+  if(pref==='quiet')out.sort((a,b)=>(b.quiet-a.quiet)||(key(a)-key(b)));
+  else if(pref==='short')out.sort((a,b)=>(key(a)-key(b))||(b.quiet-a.quiet));
+  else out.sort((a,b)=>(.65*(100-a.quiet)/100+.35*key(a)/maxD)-(.65*(100-b.quiet)/100+.35*key(b)/maxD));
+  $('mCandidates').textContent=out.length;$('mFresh').textContent='~1 hour';
+  render(out.slice(0,Number($('limit').value)),origin.name,faction);
+  log(`Done. Ranked ${out.length} candidate systems in ${faction} territory. Activity is the latest ESI hourly snapshot.`+(problems.length?`\nSkipped regions: ${problems.join('; ')}`:'')+(loaded.length<ids.length?`\n${ids.length-loaded.length} systems failed to load and were skipped.`:''));
+ }catch(e){log('Scan failed: '+e.message)}
+ finally{$('scan').disabled=false}
+}
+function render(rows,origin,faction){
+ $('results').innerHTML=rows.length?rows.map((x,i)=>`<tr><td><b>${i+1}. ${esc(x.name)}</b><br><span class="tag">${esc(x.region)}</span></td><td title="True security ${x.sec.toFixed(3)}">${gameSec(x.sec).toFixed(1)}</td><td>${x.jumps}</td><td>${x.ship} / ${x.pod}</td><td>${x.npc}</td><td>${x.distance!==null?x.distance+' jumps':(x.ly!==null?'~'+x.ly.toFixed(1)+' ly':'—')}</td><td class="score">${x.quiet}/100</td></tr>`).join(''):'<tr><td colspan="7">No candidate systems found in this security band. Try widening the security range.</td></tr>';
+ $('routeInfo').textContent=rows.length?`Origin: ${origin}. Candidate route distances are shortest stargate distances. These are destination rankings, not a multi-stop optimized tour.`:'';
+ renderDoctrine(faction);
+}
+function renderDoctrine(f){
+ const d=DOCTRINE[f];
+ $('doctrine').innerHTML=Object.entries(DOCTRINE).map(([name,v])=>`<div class="faction" style="${name===f?'border-color:var(--amber)':''}"><strong>${esc(name)}</strong><span>Deal: ${v.deal[0]}</span></div>`).join('');
+ $('advice').innerHTML=`<h3>${esc(f)} // Caracal Navy Issue</h3>
+<p><b>Damage to deal:</b> ${d.deal[0]} (primary), ${d.deal[1]} (secondary)</p>
+<p><b>Missile choice:</b> ${d.ammo[0]}; second choice: ${d.ammo[1]}</p>
+<p><b>Shield resist priority:</b> ${d.resist[0]} first, then ${d.resist[1]}</p>
+<p><b>Electronic warfare:</b></p><ul>${d.ewar.map(k=>`<li><b>${EWAR[k].name}.</b> ${EWAR[k].tip}</li>`).join('')}</ul>
+<p class="small">For a shield-tanked Caracal Navy Issue, use mission/site-specific hardeners where practical. Resist profiles are faction-level starting points, not a substitute for checking the actual NPC group.</p>`;
+}
+
+/* ---------- Self-test: run in your own browser to verify ESI endpoints and region data ---------- */
+async function selfTest(){
+ $('selftest').disabled=true;const out=[`ESI base ${ESI}, compatibility date ${ESI_DATE}`];
+ const show=()=>log(out.join('\n'));
+ const check=async(label,fn)=>{try{const m=await fn();out.push('✓ '+label+(m?' — '+m:''))}catch(e){out.push('✗ '+label+' — '+e.message)}show()};
+ show();
+ await check('Name lookup (POST /universe/ids/)',async()=>{const r=await esi('/universe/ids/',{method:'POST',body:['Jita']});const h=(r.systems||r.solar_systems||[])[0];if(!h||h.id!==30000142)throw new Error('unexpected response '+JSON.stringify(r).slice(0,80));return 'Jita = '+h.id});
+ await check('System details (security, position)',async()=>{const s=await esi('/universe/systems/30000142/');if(typeof s.security_status!=='number'||!s.position)throw new Error('missing security_status or position');return s.name+' '+gameSec(s.security_status).toFixed(1)});
+ await check('Activity: system_jumps',async()=>{const j=await esi('/universe/system_jumps/');if(!Array.isArray(j)||!('ship_jumps' in j[0]))throw new Error('unexpected shape');return j.length+' systems'});
+ await check('Activity: system_kills',async()=>{const k=await esi('/universe/system_kills/');if(!Array.isArray(k)||!('npc_kills' in k[0]))throw new Error('unexpected shape');return k.length+' systems'});
+ await check('Route service',async()=>{const r=await esi('/route/30000142/30000144/?flag=shortest');if(!Array.isArray(r)||r.length<2)throw new Error('unexpected shape');return (r.length-1)+' jump(s) Jita→Perimeter'});
+ const regs=Object.values(FACTIONS).flatMap(f=>f.regions);
+ await check('Region IDs match names ('+regs.length+' regions)',async()=>{const res=await pool(regs,async([id,name])=>{const r=await esi(`/universe/regions/${id}/`);return r.name===name?null:`${id} is "${r.name}", expected "${name}"`},6,'Checking regions');const bad=res.filter(x=>x!==null);if(bad.length)throw new Error(bad.length+' problem(s): '+bad.slice(0,3).join('; '));return 'all match'});
+ out.push(accessToken?'✓ EVE session active':'• Not signed in (SSO is tested by clicking Connect)');show();
+ $('selftest').disabled=false;
+}
+
+/* ---------- Wiring ---------- */
+$('login').onclick=login;$('logout').onclick=()=>disconnect();$('useLocation').onclick=()=>getLocation();$('scan').onclick=findSystems;$('selftest').onclick=selfTest;
+$('empire').onchange=onEmpireChange;$('faction').onchange=onFactionChange;
+{
+ const cfg=store.get(localStorage,'ded_cfg',{});
+ $('clientId').value=cfg.clientId||'';$('redirect').value=cfg.redirect||defaultRedirect();
+ $('empire').value='caldari';fillFactions('caldari','Guristas');refreshFaction();
+ handleCallback().then(handled=>handled?null:restore()).catch(e=>log('Startup error: '+e.message));
+}
+</script>
+</body></html>

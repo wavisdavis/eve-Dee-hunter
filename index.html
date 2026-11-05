@@ -250,6 +250,13 @@ async function resolveOrigin(name){
  if(!hit)throw new Error('Could not find a solar system named "'+name+'". Check the spelling.');
  return {id:hit.id,name:hit.name};
 }
+// ESI removed GET /route (compat date 2025-09-30+). Current form: POST /route/{origin}/{destination} with a JSON body; returns a list of system IDs.
+async function getRoute(from,to){
+ const r=await esi(`/route/${from}/${to}/`,{method:'POST',body:{preference:'Shorter',security_penalty:50}});
+ const list=Array.isArray(r)?r:r&&r.route;
+ if(!Array.isArray(list))throw new Error('unexpected route response');
+ return list;
+}
 const lyBetween=(a,b)=>[a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)?Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)/9.4607e15:null;
 
 /* ---------- Selector synchronization ---------- */
@@ -302,7 +309,7 @@ async function findSystems(){
   const proxy=x=>pref==='quiet'?(100-x.quiet):pref==='short'?(x.ly??1e9):(.65*(100-x.quiet)/100+.35*(x.ly??maxLy)/maxLy);
   const pre=[...cands].sort((a,b)=>proxy(a)-proxy(b)).slice(0,60);
   log(`Calculating route distances from ${origin.name}…`);
-  const routed=await pool(pre,async d=>{try{const r=await esi(`/route/${origin.id}/${d.system_id}/?flag=shortest`);return {...d,distance:r.length-1}}catch(e){return {...d,distance:null}}},8,'Routing');
+  const routed=await pool(pre,async d=>{try{const r=await getRoute(origin.id,d.system_id);return {...d,distance:r.length-1}}catch(e){return {...d,distance:null}}},8,'Routing');
   const out=routed.filter(Boolean);
   if(out.length&&out.every(x=>x.distance===null))log('Route service unavailable; showing straight-line distance instead.');
   const key=x=>x.distance!==null?x.distance:1e3+(x.ly??1e3);
@@ -342,7 +349,7 @@ async function selfTest(){
  await check('System details (security, position)',async()=>{const s=await esi('/universe/systems/30000142/');if(typeof s.security_status!=='number'||!s.position)throw new Error('missing security_status or position');return s.name+' '+gameSec(s.security_status).toFixed(1)});
  await check('Activity: system_jumps',async()=>{const j=await esi('/universe/system_jumps/');if(!Array.isArray(j)||!('ship_jumps' in j[0]))throw new Error('unexpected shape');return j.length+' systems'});
  await check('Activity: system_kills',async()=>{const k=await esi('/universe/system_kills/');if(!Array.isArray(k)||!('npc_kills' in k[0]))throw new Error('unexpected shape');return k.length+' systems'});
- await check('Route service',async()=>{const r=await esi('/route/30000142/30000144/?flag=shortest');if(!Array.isArray(r)||r.length<2)throw new Error('unexpected shape');return (r.length-1)+' jump(s) Jita→Perimeter'});
+ await check('Route service (POST /route)',async()=>{const r=await getRoute(30000142,30000144);if(r.length<2)throw new Error('unexpected shape');return (r.length-1)+' jump(s) Jita→Perimeter'});
  const regs=Object.values(FACTIONS).flatMap(f=>f.regions);
  await check('Region IDs match names ('+regs.length+' regions)',async()=>{const res=await pool(regs,async([id,name])=>{const r=await esi(`/universe/regions/${id}/`);return r.name===name?null:`${id} is "${r.name}", expected "${name}"`},6,'Checking regions');const bad=res.filter(x=>x!==null);if(bad.length)throw new Error(bad.length+' problem(s): '+bad.slice(0,3).join('; '));return 'all match'});
  out.push(accessToken?'✓ EVE session active':'• Not signed in (SSO is tested by clicking Connect)');show();
